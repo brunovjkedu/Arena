@@ -6,42 +6,39 @@ package br.uffs.cc.jarena;
  * Estrategia didatica e facil de observar:
  * - explora o mapa em linha reta;
  * - troca de direcao quando encontra uma borda;
- * - quando recebe energia, fica parado por alguns turnos para economizar;
- * - por enquanto NAO divide, porque o teste anterior mostrou que clones
- *   demais reduziram muito a energia individual e o time morreu mais cedo.
+ * - se recebeu energia neste turno, fica parado para economizar e aproveitar a fonte;
+ * - se a fonte sair de perto, volta a explorar no turno seguinte;
+ * - por enquanto nao divide, para manter a comparacao mais facil.
  */
 public class AgenteDuplaArena extends Agente {
 	private static final String EQUIPE = "DuplaArena";
-	private static final int TURNOS_FARMANDO_APOS_ENERGIA = 8;
 
-	private int turnosFarmando;
+	private boolean recebeuEnergiaNesteTurno;
 
 	public AgenteDuplaArena(Integer x, Integer y, Integer energia) {
 		super(x, y, energia);
 		setDirecao(geraDirecaoAleatoria());
-		turnosFarmando = 0;
+		recebeuEnergiaNesteTurno = false;
 	}
 
 	public void pensa() {
-		// Se acabamos de receber energia, vale parar um pouco: parado custa menos
-		// energia por turno e isso facilita medir o efeito do farm.
-		if (turnosFarmando > 0) {
-			turnosFarmando--;
+		// PontoEnergia chama recebeuEnergia() antes do agente pensar neste turno.
+		// Entao esse booleano funciona como um sensor simples de "ainda estou na fonte agora?".
+		if (recebeuEnergiaNesteTurno) {
+			recebeuEnergiaNesteTurno = false;
 			para();
 			return;
 		}
 
-		if (!podeMoverPara(getDirecao())) {
+		if (podeMoverPara(getDirecao()) == false) {
 			trocaDirecaoAoBaterNaBorda();
 		}
 
 		// Estrategia atual: nao dividir automaticamente.
-		// Isso deve manter agentes mais fortes individualmente e ajudar a comparar
-		// com o resultado anterior, onde 15 divisoes pareceram custar caro demais.
 	}
 
 	public void recebeuEnergia() {
-		turnosFarmando = TURNOS_FARMANDO_APOS_ENERGIA;
+		recebeuEnergiaNesteTurno = true;
 	}
 
 	public void tomouDano(int energiaRestanteInimigo) {
@@ -53,16 +50,13 @@ public class AgenteDuplaArena extends Agente {
 	}
 
 	public void ganhouCombate() {
-		// Mantemos o comportamento simples: so garante uma direcao valida.
-		if (!podeMoverPara(getDirecao())) {
+		if (podeMoverPara(getDirecao()) == false) {
 			trocaDirecaoAoBaterNaBorda();
 		}
 	}
 
 	public void recebeuMensagem(String msg) {
-		if ("ENERGIA".equals(msg)) {
-			turnosFarmando = Math.max(turnosFarmando, 2);
-		}
+		// Ainda nao estamos usando comunicacao na estrategia simples.
 	}
 
 	public String getEquipe() {
@@ -73,7 +67,7 @@ public class AgenteDuplaArena extends Agente {
 		int novaDirecao = geraDirecaoAleatoria();
 		int tentativas = 0;
 
-		while (!podeMoverPara(novaDirecao) && tentativas < 8) {
+		while (podeMoverPara(novaDirecao) == false && tentativas < 8) {
 			novaDirecao = geraDirecaoAleatoria();
 			tentativas++;
 		}
