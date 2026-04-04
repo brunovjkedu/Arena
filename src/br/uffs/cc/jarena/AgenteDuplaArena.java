@@ -8,6 +8,7 @@ package br.uffs.cc.jarena;
  * - troca de direcao quando encontra uma borda;
  * - se recebeu energia neste turno, fica parado e avisa aliados proximos com sua posicao;
  * - se um aliado avisar "ENERGIA:x:y", tenta se mover ate essa posicao por poucos turnos;
+ * - quando perde a fonte ou o aviso expira, volta a explorar explicitamente;
  * - por enquanto nao divide, para manter a comparacao mais facil.
  */
 public class AgenteDuplaArena extends Agente {
@@ -49,6 +50,7 @@ public class AgenteDuplaArena extends Agente {
 		}
 
 		temAlvoEnergia = false;
+		retomaExploracao();
 
 		if (podeMoverPara(getDirecao()) == false) {
 			trocaDirecaoAoBaterNaBorda();
@@ -68,6 +70,8 @@ public class AgenteDuplaArena extends Agente {
 	}
 
 	public void ganhouCombate() {
+		retomaExploracao();
+
 		if (podeMoverPara(getDirecao()) == false) {
 			trocaDirecaoAoBaterNaBorda();
 		}
@@ -100,7 +104,9 @@ public class AgenteDuplaArena extends Agente {
 		int distanciaY = alvoEnergiaY - getY();
 
 		if (Math.abs(distanciaX) <= distanciaMinimaDoAlvo && Math.abs(distanciaY) <= distanciaMinimaDoAlvo) {
-			para();
+			temAlvoEnergia = false;
+			turnosSeguindoAvisoEnergia = 0;
+			retomaExploracao();
 			return;
 		}
 
@@ -108,6 +114,17 @@ public class AgenteDuplaArena extends Agente {
 			tentaDirecaoComFallback(distanciaX > 0 ? DIREITA : ESQUERDA);
 		} else {
 			tentaDirecaoComFallback(distanciaY > 0 ? BAIXO : CIMA);
+		}
+	}
+
+	private void retomaExploracao() {
+		// para() deixa o agente parado ate alguem chamar setDirecao() de novo.
+		if (isParado()) {
+			if (podeMoverPara(getDirecao())) {
+				setDirecao(getDirecao());
+			} else {
+				trocaDirecaoAoBaterNaBorda();
+			}
 		}
 	}
 
