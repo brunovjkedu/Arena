@@ -7,14 +7,19 @@ package br.uffs.cc.jarena;
  * - explora o mapa em linha reta;
  * - troca de direcao quando encontra uma borda;
  * - se recebeu energia neste turno, fica parado e avisa aliados proximos com sua posicao;
- * - se um aliado avisar "ENERGIA:x:y", tenta se mover ate essa posicao por poucos turnos;
- * - quando perde a fonte ou o aviso expira, volta a explorar explicitamente;
- * - por enquanto nao divide, para manter a comparacao mais facil.
+ * - se um aliado avisar "ENERGIA:x:y", tenta se mover ate essa posicao por alguns turnos;
+ * - quando perde a fonte ou o aviso expira, volta a explorar explicitamente.
+ *
+ * Parametros ajustaveis no treino offline:
+ * -Dduplaarena.turnosAviso=12
+ * -Dduplaarena.distanciaAlvo=5
+ * -Dduplaarena.tentativasDirecao=8
  */
 public class AgenteDuplaArena extends Agente {
 	private final String equipe;
 	private final int turnosParaSeguirAviso;
 	private final int distanciaMinimaDoAlvo;
+	private final int maxTentativasDirecao;
 
 	private boolean recebeuEnergiaNesteTurno;
 	private int turnosSeguindoAvisoEnergia;
@@ -25,8 +30,9 @@ public class AgenteDuplaArena extends Agente {
 	public AgenteDuplaArena(Integer x, Integer y, Integer energia) {
 		super(x, y, energia);
 		equipe = "DuplaArena";
-		turnosParaSeguirAviso = 12;
-		distanciaMinimaDoAlvo = Constants.ENTIDADE_VELOCIDADE;
+		turnosParaSeguirAviso = leParametroInteiro("duplaarena.turnosAviso", 12, 0, 200);
+		distanciaMinimaDoAlvo = leParametroInteiro("duplaarena.distanciaAlvo", Constants.ENTIDADE_VELOCIDADE, 0, 100);
+		maxTentativasDirecao = leParametroInteiro("duplaarena.tentativasDirecao", 8, 1, 50);
 		recebeuEnergiaNesteTurno = false;
 		turnosSeguindoAvisoEnergia = 0;
 		temAlvoEnergia = false;
@@ -140,7 +146,7 @@ public class AgenteDuplaArena extends Agente {
 		int novaDirecao = geraDirecaoAleatoria();
 		int tentativas = 0;
 
-		while (podeMoverPara(novaDirecao) == false && tentativas < 8) {
+		while (podeMoverPara(novaDirecao) == false && tentativas < maxTentativasDirecao) {
 			novaDirecao = geraDirecaoAleatoria();
 			tentativas++;
 		}
@@ -150,5 +156,30 @@ public class AgenteDuplaArena extends Agente {
 		} else {
 			para();
 		}
+	}
+
+	private int leParametroInteiro(String nome, int valorPadrao, int minimo, int maximo) {
+		String valorTexto = System.getProperty(nome);
+		int valor;
+
+		if (valorTexto == null) {
+			return valorPadrao;
+		}
+
+		try {
+			valor = Integer.parseInt(valorTexto);
+		} catch (Exception e) {
+			return valorPadrao;
+		}
+
+		if (valor < minimo) {
+			return minimo;
+		}
+
+		if (valor > maximo) {
+			return maximo;
+		}
+
+		return valor;
 	}
 }
