@@ -11,12 +11,14 @@ package br.uffs.cc.jarena;
  * - por enquanto nao divide, para manter a comparacao mais facil.
  */
 public class AgenteDuplaArena extends Agente {
-	private static final String EQUIPE = "DuplaArena";
+	// Nao usamos static no agente para evitar estado compartilhado entre instancias.
+	private final String equipe;
 
 	private boolean recebeuEnergiaNesteTurno;
 
 	public AgenteDuplaArena(Integer x, Integer y, Integer energia) {
 		super(x, y, energia);
+		equipe = "DuplaArena";
 		setDirecao(geraDirecaoAleatoria());
 		recebeuEnergiaNesteTurno = false;
 	}
@@ -60,7 +62,7 @@ public class AgenteDuplaArena extends Agente {
 	}
 
 	public String getEquipe() {
-		return EQUIPE;
+		return equipe;
 	}
 
 	private void trocaDirecaoAoBaterNaBorda() {
