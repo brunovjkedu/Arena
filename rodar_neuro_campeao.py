@@ -4,7 +4,10 @@ import json
 import subprocess
 from pathlib import Path
 
-ARQUIVO_MELHOR = Path("neuro_melhor.json")
+ARQUIVO_MELHOR_EQUIPE = Path("neuro_melhor.json")
+ARQUIVO_MELHOR_INIMIGO = Path("neuro_inimigo_melhor.json")
+CLASSE_EQUIPE_PADRAO = "br.uffs.cc.jarena.AgenteNeuroArena"
+CLASSE_INIMIGO_PADRAO = "br.uffs.cc.jarena.AgenteInimigo"
 
 
 def compila_java():
@@ -14,36 +17,62 @@ def compila_java():
     subprocess.run(["javac", *arquivos, "-d", "bin/"], check=True)
 
 
-def carrega_campeao():
-    if ARQUIVO_MELHOR.exists() == False:
+def le_json(caminho):
+    if caminho.exists() == False:
+        return None
+    return json.loads(caminho.read_text())
+
+
+def serializa_pesos(dados, nome_arquivo):
+    if dados is None:
+        return None
+
+    pesos = dados.get("pesos", [])
+    if len(pesos) == 0:
+        raise ValueError(f"{nome_arquivo} nao tem pesos salvos.")
+
+    return ",".join(str(peso) for peso in pesos)
+
+
+def carrega_campeoes():
+    equipe = le_json(ARQUIVO_MELHOR_EQUIPE)
+    inimigo = le_json(ARQUIVO_MELHOR_INIMIGO)
+
+    if equipe is None:
         raise FileNotFoundError("Arquivo neuro_melhor.json nao encontrado. Rode ./otimizar_neuro_agente.py antes.")
 
-    dados = json.loads(ARQUIVO_MELHOR.read_text())
-    pesos = dados.get("pesos", [])
-    classe_equipe = dados.get("classeEquipe", "br.uffs.cc.jarena.AgenteNeuroArena")
-    classe_adversario = dados.get("classeAdversario", "br.uffs.cc.jarena.AgenteInimigo")
+    classe_equipe = equipe.get("classeEquipe", CLASSE_EQUIPE_PADRAO)
+    classe_adversario = CLASSE_INIMIGO_PADRAO
 
-    if len(pesos) == 0:
-        raise ValueError("neuro_melhor.json nao tem pesos salvos.")
+    if inimigo is not None:
+        classe_adversario = inimigo.get("classeAdversario", "br.uffs.cc.jarena.AgenteNeuroInimigo")
+    else:
+        classe_adversario = CLASSE_INIMIGO_PADRAO
 
-    return classe_equipe, classe_adversario, ",".join(str(peso) for peso in pesos)
+    pesos_equipe = serializa_pesos(equipe, "neuro_melhor.json")
+    pesos_inimigo = serializa_pesos(inimigo, "neuro_inimigo_melhor.json")
+
+    return classe_equipe, classe_adversario, pesos_equipe, pesos_inimigo
 
 
 def main():
     print("Compilando Java...")
     compila_java()
 
-    classe_equipe, classe_adversario, pesos = carrega_campeao()
+    classe_equipe, classe_adversario, pesos_equipe, pesos_inimigo = carrega_campeoes()
 
     comando = [
         "java",
         f"-Djarena.classeEquipe={classe_equipe}",
         f"-Djarena.classeAdversario={classe_adversario}",
-        f"-Dneuro.pesos={pesos}",
+        f"-Dneuro.equipePesos={pesos_equipe}",
         "br.uffs.cc.jarena.Main",
     ]
 
-    print("Abrindo Arena com o agente neural campeao...")
+    if pesos_inimigo is not None:
+        comando.insert(-1, f"-Dneuro.adversarioPesos={pesos_inimigo}")
+
+    print("Abrindo Arena com os campeoes neurais...")
     subprocess.run(comando, check=True, cwd="bin")
 
 
