@@ -72,12 +72,27 @@ public class Arena implements Runnable {
 
 	private void adicionaAgentes() {
 		int i;
-		int xAdversario = (int)(Constants.LARGURA_TELA * 0.95);
 
 		for (i = 0; i < 15; i++) {
-			adicionaEntidade(criaEntidade(classeEquipe, 0, 0, Constants.ENTIDADE_ENERGIA_INICIAL));
-			adicionaEntidade(criaEntidade(classeAdversario, xAdversario, 0, Constants.ENTIDADE_ENERGIA_INICIAL));
+			adicionaEntidade(criaEntidade(classeEquipe, geraXInicialEquipe(), geraYInicialAgente(), Constants.ENTIDADE_ENERGIA_INICIAL));
+			adicionaEntidade(criaEntidade(classeAdversario, geraXInicialAdversario(), geraYInicialAgente(), Constants.ENTIDADE_ENERGIA_INICIAL));
 		}
+	}
+
+	private int geraXInicialEquipe() {
+		return sorteiaCoordenada(0, (int)(Constants.LARGURA_MAPA * 0.25));
+	}
+
+	private int geraXInicialAdversario() {
+		return sorteiaCoordenada((int)(Constants.LARGURA_MAPA * 0.75), Constants.LARGURA_MAPA);
+	}
+
+	private int geraYInicialAgente() {
+		return sorteiaCoordenada(0, Constants.ALTURA_MAPA);
+	}
+
+	private int sorteiaCoordenada(int minimo, int maximo) {
+		return minimo + (int)(Math.random() * Math.max(1, maximo - minimo));
 	}
 
 	private Entidade criaEntidade(String nomeClasse, Integer x, Integer y, Integer energia) {
