@@ -425,7 +425,6 @@ abstract public class Agente extends Entidade
 	public final void sinalizaRecebeuEnergia() {
 		protegeInformacoes(true);
 		try {
-			super.getArena().getEstatistico().contabilizaEnergiaColetada(this, Constants.PONTO_ENERGIA_ENTREGA_TURNO);
 			recebeuEnergia();
 			super.getArena().getDesenhista().agenteRecebeuEnergia(this);
 			
@@ -450,7 +449,6 @@ abstract public class Agente extends Entidade
 	public final void sinalizaGanhouCombate() {
 		protegeInformacoes(true);
 		try {
-			super.getArena().getEstatistico().contabilizaVitoriaCombate(this);
 			ganhouCombate();
 			super.getArena().getDesenhista().agenteGanhouCombate(this);
 			

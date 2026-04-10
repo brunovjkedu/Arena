@@ -1,34 +1,35 @@
 /**
  * Representa um ponto de energia no mapa. Os pontos de energia recarregam a
- * energia dos agentes que estiverem proximos a ele.
- *
+ * energia dos agentes que estiverem próximos a ele.
+ * 
  * Fernando Bevilacqua <fernando.bevilacqua@uffs.edu.br>
  */
 
 package br.uffs.cc.jarena;
 
-public class PontoEnergia extends Entidade {
+public class PontoEnergia extends Entidade
+{	
 	private int velocidadeX;
 	private int velocidadeY;
 	private boolean andando;
 	private long horaProximoEstado;
-
+	
 	public PontoEnergia(Integer x, Integer y, Integer energia) {
 		super(x, y, energia);
-
-		velocidadeX = (int)(Math.random() * Constants.PONTO_ENERGIA_VELOCIDADE) * (Math.random() < 0.5 ? -1 : 1);
-		velocidadeY = (int)(Math.random() * Constants.PONTO_ENERGIA_VELOCIDADE) * (Math.random() < 0.5 ? -1 : 1);
-		andando = false;
-		horaProximoEstado = 0;
+		
+		velocidadeX 		= (int)(Math.random() * Constants.PONTO_ENERGIA_VELOCIDADE) * (Math.random() < 0.5 ? -1 : 1);
+		velocidadeY 		= (int)(Math.random() * Constants.PONTO_ENERGIA_VELOCIDADE) * (Math.random() < 0.5 ? -1 : 1);
+		andando 			= false;
+		horaProximoEstado 	= 0;
 	}
-
+	
 	public void update() {
 		if(isMorta()) {
 			return;
 		}
-
+		
 		ganhaEnergia(Constants.PONTO_ENERGIA_REGENERA_TURNO);
-
+		
 		for(Entidade a : getArena().getEntidades()) {
 			if((a instanceof Agente) && (distancia(a) <= Constants.PONTO_ENERGIA_AREA)) {
 				recarregaEnergiaAgente((Agente) a);
@@ -39,27 +40,27 @@ public class PontoEnergia extends Entidade {
 			movimenta();
 		}
 	}
-
+	
 	private void movimenta() {
-		long tempoAgora = System.currentTimeMillis();
-		long tempoRestanteMudarEstado = horaProximoEstado - tempoAgora;
-
+		long tempoAgora 				= System.currentTimeMillis();
+		long tempoRestanteMudarEstado 	= horaProximoEstado - tempoAgora;
+		
 		if(andando) {
 			evitaSairTela();
 			alteraX(velocidadeX);
 			alteraY(velocidadeY);
 		}
-
+		
 		if(tempoRestanteMudarEstado <= 0) {
 			andando = !andando;
 			horaProximoEstado = tempoAgora + (andando ? Constants.PONTO_ENERGIA_TEMPO_ANDANDO : Constants.PONTO_ENERGIA_TEMPO_DESCANSO);
 		}
 	}
-
+	
 	private void evitaSairTela() {
-		boolean movendoDireita = velocidadeX > 0;
-		boolean movendoCima = velocidadeY < 0;
-
+		boolean movendoDireita 	= velocidadeX > 0;
+		boolean movendoCima 	= velocidadeY < 0;
+		
 		if(movendoDireita && getX() >= Constants.LARGURA_MAPA) {
 			velocidadeX *= -1;
 		}
@@ -76,18 +77,19 @@ public class PontoEnergia extends Entidade {
 			velocidadeY *= -1;
 		}
 	}
-
+	
 	private void recarregaEnergiaAgente(Agente a) {
+		// Primeiro, descontamos a energia do nosso estoque.
 		a.ganhaEnergia(Constants.PONTO_ENERGIA_ENTREGA_TURNO);
-		gastaEnergia(Constants.PONTO_ENERGIA_ENTREGA_TURNO);
+		gastaEnergia(Constants.PONTO_ENERGIA_ENTREGA_TURNO);		
+		
+		// Depois avisamos o agente que ele recebeu energia.
 		a.sinalizaRecebeuEnergia();
-
-		if (getArena().isModoSilencioso() == false) {
-			System.out.println("PontoEnergia" + getId() + " dando vida para " + a);
-		}
+		
+		System.out.println("PontoEnergia"+getId()+" dando vida para " + a);
 	}
-
+	
 	public String toString() {
-		return "[PontoEnergia" + getId() + "] energia=" + getEnergia() + ", x=" + getX() + ", y=" + getY();
+		return "[PontoEnergia" + getId()+"] energia="+getEnergia()+", x="+getX()+", y="+getY();
 	}
 }
