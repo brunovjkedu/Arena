@@ -20,6 +20,7 @@ public class MeuAgenteAgressivo extends Agente {
     private int turnosPersistindoNoCentro;
     private int turnosMaximosPerseguindoCogumelo;
     private int energiaMinimaParaSegurarCogumelo;
+    private int turnosAberturaInicial;
 
     private boolean recebeuEnergiaNoTurno;
     private boolean tomouDanoNoTurno;
@@ -51,7 +52,7 @@ public class MeuAgenteAgressivo extends Agente {
 
         spawnX = x;
         spawnY = y;
-        papel = getId() % 5;
+        papel = getId() % 8;
 
         configurarParametros();
         resetarEstado();
@@ -75,6 +76,7 @@ public class MeuAgenteAgressivo extends Agente {
         turnosPersistindoNoCentro = 32;
         turnosMaximosPerseguindoCogumelo = 14;
         energiaMinimaParaSegurarCogumelo = 250;
+        turnosAberturaInicial = 20;
     }
 
     private void resetarEstado() {
@@ -251,9 +253,7 @@ public class MeuAgenteAgressivo extends Agente {
     }
 
     private int direcaoInicial() {
-        boolean nasceuNoCentro = Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
-
-        if (nasceuNoCentro) {
+        if (nasceuNoCentro()) {
             if (papel == 0) {
                 return ESQUERDA;
             }
@@ -266,16 +266,21 @@ public class MeuAgenteAgressivo extends Agente {
             return BAIXO;
         }
 
-        return spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
+        return papel % 2 == 0 ? direcaoHorizontalUtil() : direcaoVerticalUtil();
     }
 
     private void pressionarMapa() {
+        if (turnosVivo <= turnosAberturaInicial) {
+            explorarAberturaInicial();
+            return;
+        }
+
         int centroX = Constants.LARGURA_MAPA / 2;
         int centroY = Constants.ALTURA_MAPA / 2;
-        boolean nasceuNoCentro = Math.abs(spawnX - centroX) < 120;
+        boolean nasceuNoCentro = nasceuNoCentro();
 
         if (!nasceuNoCentro && getEnergia() >= energiaParaPressionarCentro && turnosVivo <= turnosPersistindoNoCentro) {
-            moverNaDirecaoDoAlvo(centroX, centroY);
+            moverNaDirecaoDoAlvoSuave(centroX, centroY);
             return;
         }
 
@@ -297,6 +302,45 @@ public class MeuAgenteAgressivo extends Agente {
         }
     }
 
+    private void explorarAberturaInicial() {
+        if (nasceuNoCentro()) {
+            int faseCentro = ((turnosVivo - 1) / 4 + papel) % 4;
+            if (faseCentro == 0) {
+                tentarMover(CIMA);
+            } else if (faseCentro == 1) {
+                tentarMover(DIREITA);
+            } else if (faseCentro == 2) {
+                tentarMover(BAIXO);
+            } else {
+                tentarMover(ESQUERDA);
+            }
+            return;
+        }
+
+        int horizontalUtil = direcaoHorizontalUtil();
+        int verticalUtil = direcaoVerticalUtil();
+
+        if (papel == 0 || papel == 4) {
+            moverEmPadraoDeAbertura(horizontalUtil, verticalUtil, 3);
+        } else if (papel == 1 || papel == 5) {
+            moverEmPadraoDeAbertura(verticalUtil, horizontalUtil, 3);
+        } else if (papel == 2 || papel == 6) {
+            moverEmPadraoDeAbertura(horizontalUtil, verticalUtil, 2);
+        } else {
+            moverEmPadraoDeAbertura(verticalUtil, horizontalUtil, 2);
+        }
+    }
+
+    private void moverEmPadraoDeAbertura(int principal, int secundaria, int bloco) {
+        if (((turnosVivo - 1) / bloco) % 2 == 0) {
+            if (!tentarMover(principal)) {
+                tentarMover(secundaria);
+            }
+        } else if (!tentarMover(secundaria)) {
+            tentarMover(principal);
+        }
+    }
+
     private void rondaCentroHorizontal() {
         int centroY = Constants.ALTURA_MAPA / 2;
 
@@ -305,8 +349,8 @@ public class MeuAgenteAgressivo extends Agente {
             return;
         }
 
-        if (!tentarMover(spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA)) {
-            tentarMover(geraDirecaoAleatoria());
+        if (!tentarMover(direcaoHorizontalUtil())) {
+            tentarMover(direcaoVerticalUtil());
         }
     }
 
@@ -318,15 +362,15 @@ public class MeuAgenteAgressivo extends Agente {
             return;
         }
 
-        if (!tentarMover(spawnY < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA)) {
-            tentarMover(geraDirecaoAleatoria());
+        if (!tentarMover(direcaoVerticalUtil())) {
+            tentarMover(direcaoHorizontalUtil());
         }
     }
 
     private void rondaDiagonal() {
         int fase = (turnosVivo / Math.max(1, periodoMudancaPressao / 2)) % 2;
-        int horizontal = spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
-        int vertical = spawnY < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
+        int horizontal = direcaoHorizontalUtil();
+        int vertical = direcaoVerticalUtil();
 
         if (fase == 0) {
             if (!tentarMover(horizontal)) {
@@ -338,24 +382,28 @@ public class MeuAgenteAgressivo extends Agente {
     }
 
     private void avancarEmArcos() {
-        int fase = (turnosVivo / periodoMudancaPressao + papel) % 4;
+        int horizontal = direcaoHorizontalUtil();
+        int vertical = direcaoVerticalUtil();
+        int fase = (turnosVivo / periodoMudancaPressao + papel) % 2;
 
         if (fase == 0) {
-            tentarMover(DIREITA);
-        } else if (fase == 1) {
-            tentarMover(BAIXO);
-        } else if (fase == 2) {
-            tentarMover(ESQUERDA);
+            moverEmPadraoDeAbertura(horizontal, vertical, 2);
         } else {
-            tentarMover(CIMA);
+            moverEmPadraoDeAbertura(vertical, horizontal, 2);
         }
     }
 
     private void patrulhaAdaptativa() {
         if (turnosVivo % periodoMudancaPressao == 0) {
-            tentarMover(geraDirecaoAleatoria());
+            if (((turnosVivo / periodoMudancaPressao) + papel) % 2 == 0) {
+                tentarMover(direcaoHorizontalUtil());
+            } else {
+                tentarMover(direcaoVerticalUtil());
+            }
         } else if (!tentarMover(getDirecao())) {
-            tentarMover(geraDirecaoAleatoria());
+            if (!tentarMover(direcaoHorizontalUtil())) {
+                tentarMover(direcaoVerticalUtil());
+            }
         }
     }
 
@@ -386,6 +434,33 @@ public class MeuAgenteAgressivo extends Agente {
 
         if (ciclosBuscaLocal > janelaBuscaLocal) {
             patrulhaAdaptativa();
+        }
+    }
+
+    private void moverNaDirecaoDoAlvoSuave(int alvoX, int alvoY) {
+        int dx = alvoX - getX();
+        int dy = alvoY - getY();
+        int horizontal = direcaoHorizontalUtil();
+        int vertical = direcaoVerticalUtil();
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+            if ((dx > 0 && horizontal == DIREITA) || (dx < 0 && horizontal == ESQUERDA)) {
+                if (!tentarMover(horizontal)) {
+                    tentarMover(vertical);
+                }
+                return;
+            }
+        }
+
+        if ((dy > 0 && vertical == BAIXO) || (dy < 0 && vertical == CIMA)) {
+            if (!tentarMover(vertical)) {
+                tentarMover(horizontal);
+            }
+            return;
+        }
+
+        if (!tentarMover(horizontal)) {
+            tentarMover(vertical);
         }
     }
 
@@ -450,6 +525,24 @@ public class MeuAgenteAgressivo extends Agente {
 
         para();
         return false;
+    }
+
+    private boolean nasceuNoCentro() {
+        return Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
+    }
+
+    private int direcaoHorizontalUtil() {
+        if (nasceuNoCentro()) {
+            return papel % 2 == 0 ? DIREITA : ESQUERDA;
+        }
+        return spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
+    }
+
+    private int direcaoVerticalUtil() {
+        if (nasceuNoCentro()) {
+            return papel % 3 == 0 ? CIMA : BAIXO;
+        }
+        return spawnY < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
     }
 
     @Override

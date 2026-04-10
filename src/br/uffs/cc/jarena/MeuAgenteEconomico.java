@@ -21,6 +21,8 @@ public class MeuAgenteEconomico extends Agente {
     private int turnosMaximosPerseguindoCogumelo;
     private int energiaMinimaParaPararNoCogumelo;
     private int turnosSemEnergiaParaEsquecerCogumelo;
+    private int turnosAberturaInicial;
+    private int passosBuscaRetaCogumelo;
 
     private boolean recebeuEnergiaNoTurno;
     private boolean tomouDanoNoTurno;
@@ -38,6 +40,7 @@ public class MeuAgenteEconomico extends Agente {
     private int turnosDesdeMensagemCogumelo;
     private int turnosDesdeMensagemPerigo;
     private int ciclosBuscaLocal;
+    private int ciclosPerseguicaoCogumelo;
 
     private int cogumeloX;
     private int cogumeloY;
@@ -47,13 +50,14 @@ public class MeuAgenteEconomico extends Agente {
     private int spawnX;
     private int spawnY;
     private int papel;
+    private int direcaoBuscaCogumelo;
 
     public MeuAgenteEconomico(Integer x, Integer y, Integer energia) {
         super(x, y, energia);
 
         spawnX = x;
         spawnY = y;
-        papel = getId() % 6;
+        papel = getId() % 8;
 
         configurarParametros();
         resetarMemorias();
@@ -78,6 +82,8 @@ public class MeuAgenteEconomico extends Agente {
         turnosMaximosPerseguindoCogumelo = 18;
         energiaMinimaParaPararNoCogumelo = 540;
         turnosSemEnergiaParaEsquecerCogumelo = 32;
+        turnosAberturaInicial = 24;
+        passosBuscaRetaCogumelo = 6;
     }
 
     private void resetarMemorias() {
@@ -97,11 +103,13 @@ public class MeuAgenteEconomico extends Agente {
         turnosDesdeMensagemCogumelo = 9999;
         turnosDesdeMensagemPerigo = 9999;
         ciclosBuscaLocal = 0;
+        ciclosPerseguicaoCogumelo = 0;
 
         cogumeloX = -1;
         cogumeloY = -1;
         perigoX = -1;
         perigoY = -1;
+        direcaoBuscaCogumelo = NENHUMA_DIRECAO;
     }
 
     @Override
@@ -162,7 +170,7 @@ public class MeuAgenteEconomico extends Agente {
 
         if (cogumeloConhecidoAindaVale()) {
             if (turnosSemEnergia <= turnosMaximosPerseguindoCogumelo) {
-                moverNaDirecaoDoAlvo(cogumeloX, cogumeloY);
+                perseguirCogumelo();
             } else {
                 conheceCogumelo = false;
                 explorar();
@@ -244,6 +252,8 @@ public class MeuAgenteEconomico extends Agente {
         conheceCogumelo = true;
         idadeInfoCogumelo = 0;
         ciclosBuscaLocal = 0;
+        ciclosPerseguicaoCogumelo = 0;
+        direcaoBuscaCogumelo = NENHUMA_DIRECAO;
     }
 
     private void registrarPerigoAtual() {
@@ -268,9 +278,7 @@ public class MeuAgenteEconomico extends Agente {
     }
 
     private int direcaoInicial() {
-        boolean nasceuNoCentro = Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
-
-        if (nasceuNoCentro) {
+        if (nasceuNoCentro()) {
             if (papel == 0) {
                 return CIMA;
             }
@@ -280,29 +288,21 @@ public class MeuAgenteEconomico extends Agente {
             if (papel == 2) {
                 return ESQUERDA;
             }
-            return DIREITA;
+            if (papel == 3) {
+                return DIREITA;
+            }
+            return papel % 2 == 0 ? CIMA : BAIXO;
         }
 
-        if (spawnX < Constants.LARGURA_MAPA / 2) {
-            if (papel == 1) {
-                return BAIXO;
-            }
-            if (papel == 2) {
-                return CIMA;
-            }
-            return DIREITA;
-        }
-
-        if (papel == 1) {
-            return BAIXO;
-        }
-        if (papel == 2) {
-            return CIMA;
-        }
-        return ESQUERDA;
+        return papel % 2 == 0 ? direcaoHorizontalUtil() : direcaoVerticalUtil();
     }
 
     private void explorar() {
+        if (turnosVivo <= turnosAberturaInicial) {
+            explorarAberturaInicial();
+            return;
+        }
+
         if (papel == 0) {
             explorarFaixaHorizontal();
         } else if (papel == 1) {
@@ -310,17 +310,60 @@ public class MeuAgenteEconomico extends Agente {
         } else if (papel == 2) {
             explorarZigueZague();
         } else if (papel == 3) {
-            explorarEmDirecaoAoCentro();
+            explorarDiagonalUtil();
         } else if (papel == 4) {
-            explorarFugindoDoCentroSeNecessario();
+            explorarAlternandoDirecoesUteis();
         } else {
             explorarMisturado();
         }
     }
 
+    private void explorarAberturaInicial() {
+        if (nasceuNoCentro()) {
+            int faseCentro = ((turnosVivo - 1) / 4 + papel) % 4;
+            if (faseCentro == 0) {
+                tentarMover(CIMA);
+            } else if (faseCentro == 1) {
+                tentarMover(DIREITA);
+            } else if (faseCentro == 2) {
+                tentarMover(BAIXO);
+            } else {
+                tentarMover(ESQUERDA);
+            }
+            return;
+        }
+
+        int horizontalUtil = direcaoHorizontalUtil();
+        int verticalUtil = direcaoVerticalUtil();
+
+        if (papel == 0 || papel == 4) {
+            moverEmPadraoDeAbertura(horizontalUtil, verticalUtil, 4);
+        } else if (papel == 1 || papel == 5) {
+            moverEmPadraoDeAbertura(verticalUtil, horizontalUtil, 4);
+        } else if (papel == 2) {
+            moverEmPadraoDeAbertura(horizontalUtil, verticalUtil, 2);
+        } else if (papel == 3) {
+            moverEmPadraoDeAbertura(verticalUtil, horizontalUtil, 2);
+        } else if (papel == 6) {
+            moverEmPadraoDeAbertura(horizontalUtil, verticalUtil, 6);
+        } else {
+            moverEmPadraoDeAbertura(verticalUtil, horizontalUtil, 6);
+        }
+    }
+
+    private void moverEmPadraoDeAbertura(int principal, int secundaria, int bloco) {
+        if (((turnosVivo - 1) / bloco) % 2 == 0) {
+            if (!tentarMover(principal)) {
+                tentarMover(secundaria);
+            }
+        } else if (!tentarMover(secundaria)) {
+            tentarMover(principal);
+        }
+    }
+
     private void explorarFaixaHorizontal() {
-        int principal = spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
-        int secundaria = getY() < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
+        int principal = direcaoHorizontalUtil();
+        int secundaria = direcaoVerticalUtil();
 
         if (!tentarMover(principal) || turnosVivo % periodoTrocaExploracao == 0) {
             tentarMover(secundaria);
@@ -328,8 +371,8 @@ public class MeuAgenteEconomico extends Agente {
     }
 
     private void explorarFaixaVertical() {
-        int principal = spawnY < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
-        int secundaria = spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
+        int principal = direcaoVerticalUtil();
+        int secundaria = direcaoHorizontalUtil();
 
         if (!tentarMover(principal) || turnosVivo % periodoTrocaExploracao == 0) {
             tentarMover(secundaria);
@@ -338,8 +381,8 @@ public class MeuAgenteEconomico extends Agente {
 
     private void explorarZigueZague() {
         int fase = (turnosVivo / Math.max(1, periodoTrocaExploracao / 2)) % 2;
-        int horizontal = spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
-        int vertical = papel % 2 == 0 ? BAIXO : CIMA;
+        int horizontal = direcaoHorizontalUtil();
+        int vertical = direcaoVerticalUtil();
 
         if (fase == 0) {
             if (!tentarMover(horizontal)) {
@@ -350,48 +393,44 @@ public class MeuAgenteEconomico extends Agente {
         }
     }
 
-    private void explorarEmDirecaoAoCentro() {
-        int centroX = Constants.LARGURA_MAPA / 2;
-        int centroY = Constants.ALTURA_MAPA / 2;
+    private void explorarDiagonalUtil() {
+        int horizontal = direcaoHorizontalUtil();
+        int vertical = direcaoVerticalUtil();
+        int bloco = Math.max(2, periodoTrocaExploracao / 2);
 
-        if (Math.abs(getX() - centroX) > 100 || Math.abs(getY() - centroY) > 100) {
-            moverNaDirecaoDoAlvo(centroX, centroY);
+        if (((turnosVivo - 1) / bloco) % 2 == 0) {
+            if (!tentarMover(horizontal)) {
+                tentarMover(vertical);
+            }
         } else {
-            explorarZigueZague();
+            if (!tentarMover(vertical)) {
+                tentarMover(horizontal);
+            }
         }
     }
 
-    private void explorarFugindoDoCentroSeNecessario() {
-        boolean nasceuNoCentro = Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
+    private void explorarAlternandoDirecoesUteis() {
+        int horizontal = direcaoHorizontalUtil();
+        int vertical = direcaoVerticalUtil();
 
-        if (nasceuNoCentro && turnosVivo < 25) {
-            if (papel % 2 == 0) {
-                if (!tentarMover(ESQUERDA)) {
-                    tentarMover(CIMA);
-                }
-            } else if (!tentarMover(DIREITA)) {
-                tentarMover(BAIXO);
-            }
-            return;
+        if ((turnosVivo / Math.max(1, periodoTrocaExploracao)) % 2 == 0) {
+            moverEmPadraoDeAbertura(horizontal, vertical, 3);
+        } else {
+            moverEmPadraoDeAbertura(vertical, horizontal, 3);
         }
-
-        explorarFaixaHorizontal();
     }
 
     private void explorarMisturado() {
         if (turnosVivo % periodoTrocaExploracao == 0) {
-            int fase = (turnosVivo / periodoTrocaExploracao + papel) % 4;
-            if (fase == 0) {
-                tentarMover(DIREITA);
-            } else if (fase == 1) {
-                tentarMover(BAIXO);
-            } else if (fase == 2) {
-                tentarMover(ESQUERDA);
+            if (((turnosVivo / periodoTrocaExploracao) + papel) % 2 == 0) {
+                tentarMover(direcaoHorizontalUtil());
             } else {
-                tentarMover(CIMA);
+                tentarMover(direcaoVerticalUtil());
             }
         } else if (!tentarMover(getDirecao())) {
-            tentarMover(geraDirecaoAleatoria());
+            if (!tentarMover(direcaoHorizontalUtil())) {
+                tentarMover(direcaoVerticalUtil());
+            }
         }
     }
 
@@ -423,6 +462,66 @@ public class MeuAgenteEconomico extends Agente {
         if (ciclosBuscaLocal > janelaBuscaLocal) {
             explorar();
         }
+    }
+
+    private void perseguirCogumelo() {
+        if (direcaoBuscaCogumelo == NENHUMA_DIRECAO) {
+            direcaoBuscaCogumelo = escolherDirecaoInicialBuscaCogumelo();
+            ciclosPerseguicaoCogumelo = 0;
+        }
+
+        if (ciclosPerseguicaoCogumelo >= passosBuscaRetaCogumelo || !tentarMover(direcaoBuscaCogumelo)) {
+            direcaoBuscaCogumelo = proximaDirecaoBuscaCogumelo(direcaoBuscaCogumelo);
+            ciclosPerseguicaoCogumelo = 0;
+            if (!tentarMover(direcaoBuscaCogumelo)) {
+                explorar();
+                return;
+            }
+        }
+
+        ciclosPerseguicaoCogumelo++;
+    }
+
+    private int escolherDirecaoInicialBuscaCogumelo() {
+        int fase = papel % 4;
+        int horizontal = direcaoHorizontalUtil();
+        int vertical = direcaoVerticalUtil();
+
+        if (fase == 0) {
+            return horizontal;
+        }
+        if (fase == 1) {
+            return vertical;
+        }
+        if (fase == 2) {
+            return horizontal;
+        }
+        return vertical;
+    }
+
+    private int proximaDirecaoBuscaCogumelo(int atual) {
+        if (atual == direcaoHorizontalUtil()) {
+            return direcaoVerticalUtil();
+        }
+        return direcaoHorizontalUtil();
+    }
+
+    private boolean nasceuNoCentro() {
+        return Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
+    }
+
+    private int direcaoHorizontalUtil() {
+        if (nasceuNoCentro()) {
+            return papel % 2 == 0 ? DIREITA : ESQUERDA;
+        }
+        return spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
+    }
+
+    private int direcaoVerticalUtil() {
+        if (nasceuNoCentro()) {
+            return papel % 3 == 0 ? CIMA : BAIXO;
+        }
+        return spawnY < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
     }
 
     private void moverNaDirecaoDoAlvo(int alvoX, int alvoY) {
