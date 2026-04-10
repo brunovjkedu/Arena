@@ -1,26 +1,23 @@
 package br.uffs.cc.jarena;
 
-// Integrantes: PREENCHER_ANTES_DA_ENTREGA
+public class MeuAgente extends Agente {
 
-public class MeuAgenteAgressivo extends Agente {
-
-    // Parametros tunaveis para busca/ML.
     private int energiaBaixa;
+    private int energiaCritica;
     private int energiaMinimaParaDividir;
     private int turnosMinimosNoCogumeloParaDividir;
-    private int energiaMinimaParaLutar;
     private int vantagemEnergiaParaLutar;
-    private int energiaParaPressionarCentro;
-    private int intervaloBroadcastCogumelo;
-    private int intervaloBroadcastPerigo;
+    private int energiaMinimaParaLutar;
+    private int energiaMinimaParaSegurarCogumelo;
     private int alcanceMemoriaCogumelo;
     private int alcanceMemoriaPerigo;
+    private int intervaloBroadcastCogumelo;
+    private int intervaloBroadcastPerigo;
     private int janelaBuscaLocal;
-    private int periodoMudancaPressao;
-    private int turnosPersistindoNoCentro;
+    private int periodoTrocaExploracao;
     private int turnosMaximosPerseguindoCogumelo;
-    private int energiaMinimaParaSegurarCogumelo;
-    private int turnosAberturaInicial;
+    private int energiaMinimaParaPararNoCogumelo;
+    private int turnosSemEnergiaParaEsquecerCogumelo;
 
     private boolean recebeuEnergiaNoTurno;
     private boolean tomouDanoNoTurno;
@@ -30,70 +27,74 @@ public class MeuAgenteAgressivo extends Agente {
     private boolean conhecePerigo;
 
     private int energiaInimigo;
+    private int idadeInfoCogumelo;
+    private int idadeInfoPerigo;
     private int turnosVivo;
     private int turnosNoCogumelo;
     private int turnosSemEnergia;
     private int turnosDesdeMensagemCogumelo;
     private int turnosDesdeMensagemPerigo;
-    private int idadeInfoCogumelo;
-    private int idadeInfoPerigo;
     private int ciclosBuscaLocal;
 
     private int cogumeloX;
     private int cogumeloY;
     private int perigoX;
     private int perigoY;
+
     private int spawnX;
     private int spawnY;
     private int papel;
 
-    public MeuAgenteAgressivo(Integer x, Integer y, Integer energia) {
+    public MeuAgente(Integer x, Integer y, Integer energia) {
         super(x, y, energia);
 
         spawnX = x;
         spawnY = y;
-        papel = getId() % 8;
+        papel = getId() % 6;
 
         configurarParametros();
-        resetarEstado();
+        resetarMemorias();
 
         setDirecao(direcaoInicial());
     }
 
     private void configurarParametros() {
-        energiaBaixa = 150;
-        energiaMinimaParaDividir = 790;
-        turnosMinimosNoCogumeloParaDividir = 2;
-        energiaMinimaParaLutar = 260;
-        vantagemEnergiaParaLutar = 70;
-        energiaParaPressionarCentro = 520;
-        intervaloBroadcastCogumelo = 7;
-        intervaloBroadcastPerigo = 2;
-        alcanceMemoriaCogumelo = 34;
-        alcanceMemoriaPerigo = 6;
-        janelaBuscaLocal = 12;
-        periodoMudancaPressao = 10;
-        turnosPersistindoNoCentro = 32;
-        turnosMaximosPerseguindoCogumelo = 14;
-        energiaMinimaParaSegurarCogumelo = 250;
-        turnosAberturaInicial = 20;
+        energiaBaixa = 200;
+        energiaCritica = 110;
+        energiaMinimaParaDividir = 920;
+        turnosMinimosNoCogumeloParaDividir = 4;
+        vantagemEnergiaParaLutar = 150;
+        energiaMinimaParaLutar = 340;
+        energiaMinimaParaSegurarCogumelo = 300;
+        alcanceMemoriaCogumelo = 45;
+        alcanceMemoriaPerigo = 5;
+        intervaloBroadcastCogumelo = 8;
+        intervaloBroadcastPerigo = 3;
+        janelaBuscaLocal = 18;
+        periodoTrocaExploracao = 14;
+        turnosMaximosPerseguindoCogumelo = 18;
+        energiaMinimaParaPararNoCogumelo = 540;
+        turnosSemEnergiaParaEsquecerCogumelo = 32;
     }
 
-    private void resetarEstado() {
+    private void resetarMemorias() {
         recebeuEnergiaNoTurno = false;
         tomouDanoNoTurno = false;
         ganhouCombateNoTurno = false;
+
         conheceCogumelo = false;
         conhecePerigo = false;
+
         energiaInimigo = -1;
+        idadeInfoCogumelo = 9999;
+        idadeInfoPerigo = 9999;
         turnosVivo = 0;
         turnosNoCogumelo = 0;
         turnosSemEnergia = 0;
         turnosDesdeMensagemCogumelo = 9999;
         turnosDesdeMensagemPerigo = 9999;
-        idadeInfoCogumelo = 9999;
-        idadeInfoPerigo = 9999;
         ciclosBuscaLocal = 0;
+
         cogumeloX = -1;
         cogumeloY = -1;
         perigoX = -1;
@@ -112,7 +113,7 @@ public class MeuAgenteAgressivo extends Agente {
             avisarCogumeloSeNecessario();
 
             if (tomouDanoNoTurno) {
-                if (deveLutarAgora() || getEnergia() >= energiaMinimaParaSegurarCogumelo) {
+                if (deveLutarAgora()) {
                     para();
                 } else {
                     recuar();
@@ -124,7 +125,7 @@ public class MeuAgenteAgressivo extends Agente {
 
             if (deveDividirAgora()) {
                 divide();
-            } else if (getEnergia() >= energiaMinimaParaSegurarCogumelo) {
+            } else if (deveSegurarCogumelo()) {
                 para();
             } else {
                 buscarLocalmenteAoRedorDoCogumelo();
@@ -145,14 +146,8 @@ public class MeuAgenteAgressivo extends Agente {
             return;
         }
 
-        if (ganhouCombateNoTurno && podeDividir() && getEnergia() >= energiaMinimaParaDividir) {
-            divide();
-            finalizarTurno();
-            return;
-        }
-
-        if (getEnergia() <= energiaBaixa) {
-            if (cogumeloAindaVale()) {
+        if (estaCritico()) {
+            if (cogumeloConhecidoAindaVale()) {
                 moverNaDirecaoDoAlvo(cogumeloX, cogumeloY);
             } else {
                 recuar();
@@ -162,22 +157,26 @@ public class MeuAgenteAgressivo extends Agente {
             return;
         }
 
-        if (cogumeloAindaVale() && turnosSemEnergia <= turnosMaximosPerseguindoCogumelo) {
-            moverNaDirecaoDoAlvo(cogumeloX, cogumeloY);
-            finalizarTurno();
-            return;
+        if (cogumeloConhecidoAindaVale()) {
+            if (turnosSemEnergia <= turnosMaximosPerseguindoCogumelo) {
+                moverNaDirecaoDoAlvo(cogumeloX, cogumeloY);
+            } else {
+                conheceCogumelo = false;
+                explorar();
+            }
+        } else {
+            explorar();
         }
 
-        pressionarMapa();
         finalizarTurno();
     }
 
     private void prepararTurno() {
         turnosVivo++;
-        turnosDesdeMensagemCogumelo++;
-        turnosDesdeMensagemPerigo++;
         idadeInfoCogumelo++;
         idadeInfoPerigo++;
+        turnosDesdeMensagemCogumelo++;
+        turnosDesdeMensagemPerigo++;
 
         if (recebeuEnergiaNoTurno) {
             turnosSemEnergia = 0;
@@ -188,9 +187,10 @@ public class MeuAgenteAgressivo extends Agente {
             turnosNoCogumelo = 0;
         }
 
-        if (idadeInfoCogumelo > alcanceMemoriaCogumelo) {
+        if (turnosSemEnergia > turnosSemEnergiaParaEsquecerCogumelo) {
             conheceCogumelo = false;
         }
+
         if (idadeInfoPerigo > alcanceMemoriaPerigo) {
             conhecePerigo = false;
         }
@@ -203,11 +203,19 @@ public class MeuAgenteAgressivo extends Agente {
         energiaInimigo = -1;
     }
 
+    private boolean estaCritico() {
+        return getEnergia() <= energiaCritica;
+    }
+
     private boolean deveDividirAgora() {
         return podeDividir()
                 && !tomouDanoNoTurno
                 && getEnergia() >= energiaMinimaParaDividir
-                && (turnosNoCogumelo >= turnosMinimosNoCogumeloParaDividir || ganhouCombateNoTurno);
+                && turnosNoCogumelo >= turnosMinimosNoCogumeloParaDividir;
+    }
+
+    private boolean deveSegurarCogumelo() {
+        return getEnergia() >= energiaMinimaParaPararNoCogumelo || turnosNoCogumelo >= 2;
     }
 
     private boolean deveLutarAgora() {
@@ -215,11 +223,15 @@ public class MeuAgenteAgressivo extends Agente {
             return false;
         }
 
+        if (recebeuEnergiaNoTurno && getEnergia() >= energiaMinimaParaSegurarCogumelo) {
+            return getEnergia() + vantagemEnergiaParaLutar >= energiaInimigo;
+        }
+
         return getEnergia() >= energiaMinimaParaLutar
                 && (getEnergia() - energiaInimigo) >= vantagemEnergiaParaLutar;
     }
 
-    private boolean cogumeloAindaVale() {
+    private boolean cogumeloConhecidoAindaVale() {
         return conheceCogumelo && idadeInfoCogumelo <= alcanceMemoriaCogumelo;
     }
 
@@ -253,124 +265,78 @@ public class MeuAgenteAgressivo extends Agente {
     }
 
     private int direcaoInicial() {
-        if (nasceuNoCentro()) {
+        boolean nasceuNoCentro = Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
+
+        if (nasceuNoCentro) {
             if (papel == 0) {
-                return ESQUERDA;
+                return CIMA;
             }
             if (papel == 1) {
-                return DIREITA;
+                return BAIXO;
+            }
+            if (papel == 2) {
+                return ESQUERDA;
+            }
+            return DIREITA;
+        }
+
+        if (spawnX < Constants.LARGURA_MAPA / 2) {
+            if (papel == 1) {
+                return BAIXO;
             }
             if (papel == 2) {
                 return CIMA;
             }
+            return DIREITA;
+        }
+
+        if (papel == 1) {
             return BAIXO;
         }
-
-        return papel % 2 == 0 ? direcaoHorizontalUtil() : direcaoVerticalUtil();
+        if (papel == 2) {
+            return CIMA;
+        }
+        return ESQUERDA;
     }
 
-    private void pressionarMapa() {
-        if (turnosVivo <= turnosAberturaInicial) {
-            explorarAberturaInicial();
-            return;
-        }
-
-        int centroX = Constants.LARGURA_MAPA / 2;
-        int centroY = Constants.ALTURA_MAPA / 2;
-        boolean nasceuNoCentro = nasceuNoCentro();
-
-        if (!nasceuNoCentro && getEnergia() >= energiaParaPressionarCentro && turnosVivo <= turnosPersistindoNoCentro) {
-            moverNaDirecaoDoAlvoSuave(centroX, centroY);
-            return;
-        }
-
-        if (conhecePerigo && getEnergia() >= energiaMinimaParaLutar) {
-            moverNaDirecaoDoAlvo(perigoX, perigoY);
-            return;
-        }
-
+    private void explorar() {
         if (papel == 0) {
-            rondaCentroHorizontal();
+            explorarFaixaHorizontal();
         } else if (papel == 1) {
-            rondaCentroVertical();
+            explorarFaixaVertical();
         } else if (papel == 2) {
-            rondaDiagonal();
+            explorarZigueZague();
         } else if (papel == 3) {
-            avancarEmArcos();
+            explorarEmDirecaoAoCentro();
+        } else if (papel == 4) {
+            explorarFugindoDoCentroSeNecessario();
         } else {
-            patrulhaAdaptativa();
+            explorarMisturado();
         }
     }
 
-    private void explorarAberturaInicial() {
-        if (nasceuNoCentro()) {
-            int faseCentro = ((turnosVivo - 1) / 4 + papel) % 4;
-            if (faseCentro == 0) {
-                tentarMover(CIMA);
-            } else if (faseCentro == 1) {
-                tentarMover(DIREITA);
-            } else if (faseCentro == 2) {
-                tentarMover(BAIXO);
-            } else {
-                tentarMover(ESQUERDA);
-            }
-            return;
-        }
+    private void explorarFaixaHorizontal() {
+        int principal = spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
+        int secundaria = getY() < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
 
-        int horizontalUtil = direcaoHorizontalUtil();
-        int verticalUtil = direcaoVerticalUtil();
-
-        if (papel == 0 || papel == 4) {
-            moverEmPadraoDeAbertura(horizontalUtil, verticalUtil, 3);
-        } else if (papel == 1 || papel == 5) {
-            moverEmPadraoDeAbertura(verticalUtil, horizontalUtil, 3);
-        } else if (papel == 2 || papel == 6) {
-            moverEmPadraoDeAbertura(horizontalUtil, verticalUtil, 2);
-        } else {
-            moverEmPadraoDeAbertura(verticalUtil, horizontalUtil, 2);
+        if (!tentarMover(principal) || turnosVivo % periodoTrocaExploracao == 0) {
+            tentarMover(secundaria);
         }
     }
 
-    private void moverEmPadraoDeAbertura(int principal, int secundaria, int bloco) {
-        if (((turnosVivo - 1) / bloco) % 2 == 0) {
-            if (!tentarMover(principal)) {
-                tentarMover(secundaria);
-            }
-        } else if (!tentarMover(secundaria)) {
-            tentarMover(principal);
+    private void explorarFaixaVertical() {
+        int principal = spawnY < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
+        int secundaria = spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
+
+        if (!tentarMover(principal) || turnosVivo % periodoTrocaExploracao == 0) {
+            tentarMover(secundaria);
         }
     }
 
-    private void rondaCentroHorizontal() {
-        int centroY = Constants.ALTURA_MAPA / 2;
-
-        if (Math.abs(getY() - centroY) > 50) {
-            tentarMover(getY() < centroY ? BAIXO : CIMA);
-            return;
-        }
-
-        if (!tentarMover(direcaoHorizontalUtil())) {
-            tentarMover(direcaoVerticalUtil());
-        }
-    }
-
-    private void rondaCentroVertical() {
-        int centroX = Constants.LARGURA_MAPA / 2;
-
-        if (Math.abs(getX() - centroX) > 70) {
-            tentarMover(getX() < centroX ? DIREITA : ESQUERDA);
-            return;
-        }
-
-        if (!tentarMover(direcaoVerticalUtil())) {
-            tentarMover(direcaoHorizontalUtil());
-        }
-    }
-
-    private void rondaDiagonal() {
-        int fase = (turnosVivo / Math.max(1, periodoMudancaPressao / 2)) % 2;
-        int horizontal = direcaoHorizontalUtil();
-        int vertical = direcaoVerticalUtil();
+    private void explorarZigueZague() {
+        int fase = (turnosVivo / Math.max(1, periodoTrocaExploracao / 2)) % 2;
+        int horizontal = spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
+        int vertical = papel % 2 == 0 ? BAIXO : CIMA;
 
         if (fase == 0) {
             if (!tentarMover(horizontal)) {
@@ -381,35 +347,54 @@ public class MeuAgenteAgressivo extends Agente {
         }
     }
 
-    private void avancarEmArcos() {
-        int horizontal = direcaoHorizontalUtil();
-        int vertical = direcaoVerticalUtil();
-        int fase = (turnosVivo / periodoMudancaPressao + papel) % 2;
+    private void explorarEmDirecaoAoCentro() {
+        int centroX = Constants.LARGURA_MAPA / 2;
+        int centroY = Constants.ALTURA_MAPA / 2;
 
-        if (fase == 0) {
-            moverEmPadraoDeAbertura(horizontal, vertical, 2);
+        if (Math.abs(getX() - centroX) > 100 || Math.abs(getY() - centroY) > 100) {
+            moverNaDirecaoDoAlvo(centroX, centroY);
         } else {
-            moverEmPadraoDeAbertura(vertical, horizontal, 2);
+            explorarZigueZague();
         }
     }
 
-    private void patrulhaAdaptativa() {
-        if (turnosVivo % periodoMudancaPressao == 0) {
-            if (((turnosVivo / periodoMudancaPressao) + papel) % 2 == 0) {
-                tentarMover(direcaoHorizontalUtil());
+    private void explorarFugindoDoCentroSeNecessario() {
+        boolean nasceuNoCentro = Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
+
+        if (nasceuNoCentro && turnosVivo < 25) {
+            if (papel % 2 == 0) {
+                if (!tentarMover(ESQUERDA)) {
+                    tentarMover(CIMA);
+                }
+            } else if (!tentarMover(DIREITA)) {
+                tentarMover(BAIXO);
+            }
+            return;
+        }
+
+        explorarFaixaHorizontal();
+    }
+
+    private void explorarMisturado() {
+        if (turnosVivo % periodoTrocaExploracao == 0) {
+            int fase = (turnosVivo / periodoTrocaExploracao + papel) % 4;
+            if (fase == 0) {
+                tentarMover(DIREITA);
+            } else if (fase == 1) {
+                tentarMover(BAIXO);
+            } else if (fase == 2) {
+                tentarMover(ESQUERDA);
             } else {
-                tentarMover(direcaoVerticalUtil());
+                tentarMover(CIMA);
             }
         } else if (!tentarMover(getDirecao())) {
-            if (!tentarMover(direcaoHorizontalUtil())) {
-                tentarMover(direcaoVerticalUtil());
-            }
+            tentarMover(geraDirecaoAleatoria());
         }
     }
 
     private void buscarLocalmenteAoRedorDoCogumelo() {
-        if (!cogumeloAindaVale()) {
-            patrulhaAdaptativa();
+        if (!cogumeloConhecidoAindaVale()) {
+            explorar();
             return;
         }
 
@@ -419,7 +404,7 @@ public class MeuAgenteAgressivo extends Agente {
             return;
         }
 
-        int fase = (ciclosBuscaLocal / 2 + papel) % 4;
+        int fase = (ciclosBuscaLocal / 3 + papel) % 4;
         ciclosBuscaLocal++;
 
         if (fase == 0) {
@@ -433,34 +418,7 @@ public class MeuAgenteAgressivo extends Agente {
         }
 
         if (ciclosBuscaLocal > janelaBuscaLocal) {
-            patrulhaAdaptativa();
-        }
-    }
-
-    private void moverNaDirecaoDoAlvoSuave(int alvoX, int alvoY) {
-        int dx = alvoX - getX();
-        int dy = alvoY - getY();
-        int horizontal = direcaoHorizontalUtil();
-        int vertical = direcaoVerticalUtil();
-
-        if (Math.abs(dx) > Math.abs(dy)) {
-            if ((dx > 0 && horizontal == DIREITA) || (dx < 0 && horizontal == ESQUERDA)) {
-                if (!tentarMover(horizontal)) {
-                    tentarMover(vertical);
-                }
-                return;
-            }
-        }
-
-        if ((dy > 0 && vertical == BAIXO) || (dy < 0 && vertical == CIMA)) {
-            if (!tentarMover(vertical)) {
-                tentarMover(horizontal);
-            }
-            return;
-        }
-
-        if (!tentarMover(horizontal)) {
-            tentarMover(vertical);
+            explorar();
         }
     }
 
@@ -492,7 +450,11 @@ public class MeuAgenteAgressivo extends Agente {
             return;
         }
 
-        if (!tentarMover(spawnX < Constants.LARGURA_MAPA / 2 ? ESQUERDA : DIREITA)) {
+        if (spawnX < Constants.LARGURA_MAPA / 2) {
+            if (!tentarMover(ESQUERDA)) {
+                tentarMover(spawnY < Constants.ALTURA_MAPA / 2 ? CIMA : BAIXO);
+            }
+        } else if (!tentarMover(DIREITA)) {
             tentarMover(spawnY < Constants.ALTURA_MAPA / 2 ? CIMA : BAIXO);
         }
     }
@@ -525,24 +487,6 @@ public class MeuAgenteAgressivo extends Agente {
 
         para();
         return false;
-    }
-
-    private boolean nasceuNoCentro() {
-        return Math.abs(spawnX - (Constants.LARGURA_MAPA / 2)) < 120;
-    }
-
-    private int direcaoHorizontalUtil() {
-        if (nasceuNoCentro()) {
-            return papel % 2 == 0 ? DIREITA : ESQUERDA;
-        }
-        return spawnX < Constants.LARGURA_MAPA / 2 ? DIREITA : ESQUERDA;
-    }
-
-    private int direcaoVerticalUtil() {
-        if (nasceuNoCentro()) {
-            return papel % 3 == 0 ? CIMA : BAIXO;
-        }
-        return spawnY < Constants.ALTURA_MAPA / 2 ? BAIXO : CIMA;
     }
 
     @Override
@@ -582,10 +526,12 @@ public class MeuAgenteAgressivo extends Agente {
             int idade = inteiroSeguro(partes[3], turnosVivo);
 
             if (x >= 0 && y >= 0 && (turnosVivo - idade) <= alcanceMemoriaCogumelo) {
-                cogumeloX = x;
-                cogumeloY = y;
-                conheceCogumelo = true;
-                idadeInfoCogumelo = turnosVivo - idade;
+                if (!conheceCogumelo || idadeInfoCogumelo > (turnosVivo - idade)) {
+                    cogumeloX = x;
+                    cogumeloY = y;
+                    conheceCogumelo = true;
+                    idadeInfoCogumelo = turnosVivo - idade;
+                }
             }
         } else if ("E".equals(partes[0]) && partes.length >= 5) {
             int x = inteiroSeguro(partes[1], -1);
@@ -613,6 +559,6 @@ public class MeuAgenteAgressivo extends Agente {
 
     @Override
     public String getEquipe() {
-        return "EquipeInimigo";
+        return "MinhaEquipe";
     }
 }
