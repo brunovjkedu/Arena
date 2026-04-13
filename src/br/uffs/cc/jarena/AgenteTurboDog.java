@@ -1,5 +1,17 @@
 package br.uffs.cc.jarena;
 
+/**
+ * Agente TurboDog.
+ *
+ * Estrategia didatica e facil de observar:
+ * - explora o mapa com 3 grupos grupo 0 para o centro e depis se separa por posições aleatórias, grupo 1 anda verticalmente e 2 horizantalmente;
+ * - troca de direcao quando encontra uma borda;
+ * - se recebeu energia neste turno, fica parado e avisa aliados proximos com sua posicao;
+ * - se um aliado avisar "ENERGIA:x:y", tenta se mover ate essa posicao por poucos turnos;
+ * 
+ * INTEGRANTES: Artur Malheiros(artur.quadros2006@gmail.com) e Bruno Rocha(brunovjk@gmail.com)
+ */
+
 public class AgenteTurboDog extends Agente {
     private final String equipe;
     private final int turnosParaSeguirAviso;
@@ -13,7 +25,7 @@ public class AgenteTurboDog extends Agente {
     
     private int papel; 
     private boolean coletouRecentemente; 
-    private boolean chegouNoCentro; // Trava para mudar o comportamento do Grupo 0
+    private boolean chegouNoCentro; //para repartir grupo 0 quando chegar no centro
 
     public AgenteTurboDog(Integer x, Integer y, Integer energia) {
         super(x, y, energia);
@@ -50,7 +62,7 @@ public class AgenteTurboDog extends Agente {
             return;
         }
 
-        // Se coletou, fica parado para economizar (conforme sua regra anterior)
+        //fica parado depois que coletar um cogumelo, assim pega energia e economiza ela
         if (coletouRecentemente) {
             para();
             return;
@@ -64,28 +76,28 @@ public class AgenteTurboDog extends Agente {
 
         temAlvoEnergia = false;
 
-        // LÓGICA DE MOVIMENTAÇÃO (FOCO NO DESLOCAMENTO)
+        //lógica de movimentação dividida em 3 grupos com movimentações diferentes
         if (papel == 0 && !chegouNoCentro) {
             int centroX = Constants.LARGURA_TELA / 2;
             int centroY = Constants.ALTURA_TELA / 2;
 
-            // Se ainda está longe do meio, continua indo pra lá
+            //se ainda está longe do meio, continua indo pra lá
             if (Math.abs(getX() - centroX) > 60 || Math.abs(getY() - centroY) > 60) {
                 apontaParaOCentro();
             } else {
-                // Chegou no meio! Libera para explorar o resto do mapa
+                //quando chega no meio se espalha para explorar
                 chegouNoCentro = true; 
                 setDirecao(geraDirecaoAleatoria());
             }
         } else {
-            // Se bater em algo ou for Grupo 1/2/Grupo 0 que já passou pelo centro
+
             if (!podeMoverPara(getDirecao())) {
                 if (papel == 1 && !chegouNoCentro) {
                     setDirecao(getDirecao() == BAIXO ? CIMA : BAIXO);
                 } else if (papel == 2 && !chegouNoCentro) {
                     setDirecao(getDirecao() == DIREITA ? ESQUERDA : DIREITA);
                 } else {
-                    // Espalhamento aleatório após cumprir o objetivo ou bater
+                    //espalhamento aleatório
                     setDirecao(geraDirecaoAleatoria());
                 }
             }
